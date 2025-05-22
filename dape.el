@@ -589,6 +589,50 @@ this MIME type."
   "The bytes read with `dape-memory'."
   :type 'natnum)
 
+(defcustom dape-display-buttons-in-repl t
+  "Display debugging buttons in dape REPL buffer.
+If non-nil, display debugging buttons for the dape REPL buffer in the
+header-line."
+  :type 'boolean)
+
+(defcustom dape-repl-buttons-icons
+  '((continue . "▶️")
+    (next . "⏩")
+    (step-in . "⤵️")
+    (step-out . "⤴️")
+    (pause . "⏸️")
+    (restart . "🔁")
+    (quit . "✖️"))
+  "Alist with icons strings to display in the header-line.
+Available icons are: `continue', `next', `step-in', `step-out',
+`pause', `restart' and `quit'"
+  :type '(alist
+          :key-type
+          (choice
+           (const :tag "Continue" continue)
+           (const :tag "Next" next)
+           (const :tag "Step in" step-in)
+           (const :tag "Step out" step-out)
+           (const :tag "Pause" pause)
+           (const :tag "Restart" restart)
+           (const :tag "Quit" quit))
+          :value-type string))
+
+(defcustom dape-repl-header-line-buttons-format
+  '( continue " " next " " step-in " " step-out " "
+     pause " " restart " " quit)
+  "Header line construct for formatting Dape debugging buttons."
+  :type '(repeat
+          (choice
+           (const :tag "Continue" continue)
+           (const :tag "Next" next)
+           (const :tag "Step in" step-in)
+           (const :tag "Step out" step-out)
+           (const :tag "Pause" pause)
+           (const :tag "Restart" restart)
+           (const :tag "Quit" quit)
+           string)))
+
 (defcustom dape-info-buffer-window-groups
   '((dape-info-scope-mode dape-info-watch-mode)
     (dape-info-stack-mode dape-info-modules-mode dape-info-sources-mode)
@@ -4759,6 +4803,8 @@ If EXPRESSIONS is non blank add or remove expression to watch list."
               comint-input-sender 'dape--repl-input-sender
               comint-prompt-regexp (concat "^" (regexp-quote dape--repl-prompt))
               comint-process-echoes nil)
+  (when (and dape-display-buttons-in-repl (not header-line-format))
+    (setq-local header-line-format (dape--repl-header-line-format)))
   (add-to-list 'overlay-arrow-variable-list 'dape--repl-marker)
   (add-hook 'completion-at-point-functions
             #'dape--repl-completion-at-point nil t)
@@ -5450,6 +5496,41 @@ See `eldoc-documentation-functions', for more information."
   "Dape mode line format.")
 
 (put 'dape--mode-line-format 'risky-local-variable t)
+
+(defun dape--header-line-create-button (icon action help-echo)
+  (if-let* ((str (alist-get icon dape-repl-buttons-icons)))
+      (list
+       :propertize str
+       'mouse-face 'highlight
+       'help-echo (concat "mouse-1: " help-echo)
+       'keymap
+       (let ((map (make-sparse-keymap)))
+         (define-key map [header-line mouse-1] action)
+         map))))
+
+(defun dape--repl-header-line-format ()
+  `(,@(cl-loop
+       for icon in dape-repl-header-line-buttons-format
+       collect
+       (if (stringp icon)
+           icon
+         (apply #'dape--header-line-create-button
+                icon
+                (pcase icon
+                  ('continue
+                   '(dape-continue "Continue"))
+                  ('next
+                   '(dape-next "Next"))
+                  ('step-in
+                   '(dape-step-in "Step in"))
+                  ('step-out
+                   '(dape-step-out "Step out"))
+                  ('pause
+                   '(dape-pause "Pause"))
+                  ('restart
+                   '(dape-restart "Restart"))
+                  ('quit
+                   '(dape-quit "Quit"))))))))
 
 (defun dape--mode-line-format ()
   "Update variable `dape--mode-line-format' format."
