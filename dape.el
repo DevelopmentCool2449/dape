@@ -857,6 +857,33 @@ Non interactive global minor mode."
   :interactive nil)
 
 
+;;; Tool bar
+(defvar dape-tool-bar-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (x '((dape-continue "gud/go" "Continue")
+                 (dape-next "gud/next" "Next")
+                 (dape-step-in "gud/step" "Step in")
+                 (dape-step-out "gud/finish" "Step out")
+                 (dape-pause "mpc/pause" "Pause")
+                 (dape-restart "refresh" "Restart")
+                 (dape-quit "gud/stop" "Quit"))
+	       map)
+      (tool-bar-local-item
+       (nth 1 x) (car x) (car x) map
+       :help (nth 2 x))))
+  "Keymap for Tool bar in.")
+
+(defvar-local dape--tool-bar-map-bk nil)
+
+(define-minor-mode dape-tool-bar-mode
+  "Enable dape tool-bar keymap."
+  :interactive nil
+  (if dape-tool-bar-mode
+      (setq dape--tool-bar-map-bk
+            (buffer-local-set-state tool-bar-map dape-tool-bar-map))
+    (buffer-local-restore-state dape--tool-bar-map-bk)))
+
+
 ;;; Utils
 
 (defun dape--warn (format &rest args)
@@ -1996,7 +2023,8 @@ If DISPLAY-SOURCE-P is non-nil, display displayable top frame."
 (define-derived-mode dape-shell-mode shell-mode "Shell"
   "Major mode for interacting with an debugged program."
   :interactive nil
-  (setq-local revert-buffer-function (lambda (&rest _) (dape-restart))))
+  (setq-local revert-buffer-function (lambda (&rest _) (dape-restart)))
+  (dape-tool-bar-mode))
 
 (cl-defmethod dape-handle-request (conn (_command (eql runInTerminal)) arguments)
   "Handle runInTerminal requests.
@@ -2989,7 +3017,8 @@ of memory read."
   :interactive nil
   ;; TODO Add support for :SetInstructionBreakpoints
   (setq-local dape--disassemble-overlay-arrow (make-marker)
-              dape-stepping-granularity 'instruction))
+              dape-stepping-granularity 'instruction)
+  (dape-tool-bar-mode))
 
 (defvar dape--disassemble-debounce-timer (timer-create)
   "Debounce context for `dape-disassemble-revert'.")
@@ -3663,6 +3692,7 @@ Each buffers store its own debounce context."
               cursor-in-non-selected-windows nil
               revert-buffer-function #'dape--info-revert
               dape--info-debounce-timer (timer-create))
+  (dape-tool-bar-mode)
   (add-hook 'window-buffer-change-functions #'dape--info-buffer-change-fn
             nil 'local)
   (when dape-info-hide-mode-line (setq-local mode-line-format nil))
